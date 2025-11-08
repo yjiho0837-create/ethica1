@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ethica</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body { margin: 0; font-family: 'Poppins', sans-serif; background-color: #CEF8FF; color: #333; }
+    .screen { display: none; padding: 20px; }
+    .active { display: block; }
+    .logo { text-align: center; font-size: 36px; font-weight: bold; margin-top: 20px; }
+    .button-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 40px; padding: 0 40px; }
+    .nav-button { background-color: white; border-radius: 15px; padding: 30px; text-align: center; font-weight: bold; font-size: 18px; box-shadow: 2px 2px 10px rgba(0,0,0,0.1); cursor: pointer; }
+    .search-bar { width: 100%; padding: 10px; font-size: 16px; margin-bottom: 20px; border-radius: 10px; border: none; }
+    .company-list, .history-list, .post-list { list-style: none; padding: 0; }
+    .company-item, .product-item, .post { background: white; padding: 15px; margin-bottom: 10px; border-radius: 10px; box-shadow: 1px 1px 6px rgba(0,0,0,0.05); }
+    #reader { width: 100%; max-width: 400px; margin: auto; }
+    .info-icons { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .icon { background: white; padding: 10px; border-radius: 10px; }
+    .back-button { margin-top: 20px; background: #fff; border-radius: 10px; padding: 10px 20px; display: inline-block; cursor: pointer; box-shadow: 1px 1px 4px rgba(0,0,0,0.1); }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+<!-- Home -->
+<div id="home" class="screen active">
+  <div class="logo">Ethica</div>
+  <div class="button-grid">
+    <div class="nav-button" onclick="navigate('search')">Search</div>
+    <div class="nav-button" onclick="navigate('scan')">Scan</div>
+    <div class="nav-button" onclick="navigate('mypage')">My Page</div>
+    <div class="nav-button" onclick="navigate('community')">Community</div>
+  </div>
+</div>
+
+<!-- Search -->
+<div id="search" class="screen">
+  <input type="text" id="search-input" placeholder="브랜드 또는 제품명을 검색하세요..." class="search-bar" />
+  <ul id="search-results" class="company-list"></ul>
+  <div class="back-button" onclick="navigate('home')">← 홈으로</div>
+</div>
+
+<!-- Information -->
+<div id="information" class="screen">
+  <h2 id="company-name">제품 이름</h2>
+  <div class="info-icons" id="info-tags"></div>
+  <pre id="company-desc">제품 상세 정보가 여기에 표시됩니다.</pre>
+  <div class="back-button" onclick="navigate('search')">← 뒤로</div>
+</div>
+
+<!-- Scan -->
+<div id="scan" class="screen">
+  <h2>바코드를 스캔하세요</h2>
+  <div id="reader"></div>
+  <h3 style="margin-top: 30px;">또는 바코드 번호를 입력하세요</h3>
+  <input type="text" id="manual-barcode" placeholder="바코드 숫자 입력" class="search-bar" />
+  <button onclick="manualBarcodeSearch()" class="nav-button">조회하기</button>
+  <div class="back-button" onclick="stopScanner();navigate('home')">← 홈으로</div>
+</div>
+
+<!-- Product Analysis -->
+<div id="product" class="screen">
+  <h2 id="product-name">제품 이름</h2>
+  <p id="product-company">브랜드명</p>
+  <div class="info-icons">
+    <div class="icon">💧 물 사용 절감</div>
+    <div class="icon">🌍 탄소 저감</div>
+    <div class="icon">🔄 윤리적 생산</div>
+  </div>
+  <div class="back-button" onclick="navigate('home')">← 홈으로</div>
+</div>
+
+<!-- My Page -->
+<div id="mypage" class="screen">
+  <h2>나의 에코 소비 기록</h2>
+  <p>🌿 총 절약된 탄소: 25kg</p>
+  <p>💧 물 절약량: 150L</p>
+  <ul class="history-list">
+    <li class="product-item">Lush 샴푸 - 2025/11/06</li>
+    <li class="product-item">The Body Shop 클렌저 - 2025/11/03</li>
+  </ul>
+  <div class="back-button" onclick="navigate('home')">← 홈으로</div>
+</div>
+
+<!-- Community -->
+<div id="community" class="screen">
+  <h2>커뮤니티</h2>
+  <ul class="post-list">
+    <li class="post">📝 Lush 제품 너무 좋아요!</li>
+    <li class="post">🧴 어떤 클렌저가 가장 친환경적일까요?</li>
+  </ul>
+  <div class="back-button" onclick="navigate('home')">← 홈으로</div>
+</div>
+
+<!-- SCRIPT -->
+<script>
+  function navigate(screen) {
+    document.querySelectorAll('.screen').forEach(div => div.classList.remove('active'));
+    document.getElementById(screen).classList.add('active');
+    if (screen === 'scan') startScanner();
+    else stopScanner();
+  }
+
+  let scanner;
+  function startScanner() {
+    scanner = new Html5Qrcode("reader");
+    scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 },
+      async (decodedText) => {
+        stopScanner();
+        fetchProductData(decodedText);
+      }
+    ).catch(err => console.error("카메라 접근 실패", err));
+  }
+
+  function stopScanner() {
+    if (scanner) scanner.stop().then(() => scanner.clear());
+  }
+
+  function manualBarcodeSearch() {
+    const code = document.getElementById('manual-barcode').value.trim();
+    if (code.length === 0) {
+      alert("바코드 숫자를 입력해주세요.");
+      return;
+    }
+    stopScanner();
+    fetchProductData(code);
+  }
+
+  async function fetchProductData(barcode) {
+    try {
+      const res = await fetch(`https://world.openbeautyfacts.org/api/v0/product/${barcode}.json`);
+      const data = await res.json();
+      if (data.status === 1) {
+        const product = data.product;
+        document.getElementById('product-name').innerText = product.product_name || "이름 없음";
+        document.getElementById('product-company').innerText = product.brands || "브랜드 정보 없음";
+        navigate('product');
+      } else {
+        alert(`❌ 해당 바코드의 상품 정보가 없습니다. (${barcode})`);
+        navigate('home');
+      }
+    } catch (error) {
+      console.error("API 호출 오류:", error);
+      alert('🚨 네트워크 오류 또는 잘못된 바코드입니다.');
+      navigate('home');
+    }
+  }
+
+  const searchInput = document.getElementById('search-input');
+  const resultsList = document.getElementById('search-results');
+  let debounceTimeout;
+  searchInput?.addEventListener('input', () => {
+    const query = searchInput.value.trim();
+    if (debounceTimeout) clearTimeout(debounceTimeout);
+    if (query.length === 0) {
+      resultsList.innerHTML = '';
+      return;
+    }
+    debounceTimeout = setTimeout(() => fetchSearchResults(query), 500);
+  });
+
+  async function fetchSearchResults(query) {
+    const url = `https://world.openbeautyfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1`;
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      const products = data.products.slice(0, 10);
+      resultsList.innerHTML = '';
+      if (products.length === 0) {
+        resultsList.innerHTML = '<li class="company-item">🔍 결과 없음</li>';
+        return;
+      }
+      products.forEach(product => {
+        const li = document.createElement('li');
+        li.className = 'company-item';
+        li.textContent = `${product.product_name || '이름 없음'} (${product.brands || '브랜드 정보 없음'})`;
+        li.onclick = () => loadProductDetails(product.code);
+        resultsList.appendChild(li);
+      });
+    } catch (err) {
+      resultsList.innerHTML = '<li class="company-item">❌ 오류 발생</li>';
+    }
+  }
+
+  function cleanTag(tag) {
+    if (!tag) return '';
+    return tag.replace(/^[a-z]{2}:/, '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  async function loadProductDetails(code) {
+    const res = await fetch(`https://world.openbeautyfacts.org/api/v0/product/${code}.json`);
+    const data = await res.json();
+    if (data.status === 1) {
+      const product = data.product;
+      document.getElementById('company-name').innerText = product.product_name || '이름 없음';
+      const infoTags = document.getElementById('info-tags');
+      const descBox = document.getElementById('company-desc');
+      infoTags.innerHTML = '';
+      let desc = '';
+
+      if (product.brands) {
+        infoTags.innerHTML += `<div class="icon">🏷️ Brand: ${product.brands}</div>`;
+      }
+      if (product.categories_tags?.length) {
+        const cats = product.categories_tags.map(cleanTag).join(', ');
+        infoTags.innerHTML += `<div class="icon">📦 Categories: ${cats}</div>`;
+      }
+      if (product.labels_tags?.length) {
+        const labels = product.labels_tags.map(cleanTag).join(', ');
+        infoTags.innerHTML += `<div class="icon">✅ Labels: ${labels}</div>`;
+      }
+      if (product.ingredients_text) {
+        desc += `📋 Ingredients:\n${product.ingredients_text}\n\n`;
+      }
+      if (product.labels_tags?.includes('en:organic')) {
+        infoTags.innerHTML += `<div class="icon">🌱 Organic Product</div>`;
+      }
+      if (product.labels_tags?.includes('en:fair-trade')) {
+        infoTags.innerHTML += `<div class="icon">🤝 Fair Trade</div>`;
+      }
+
+      descBox.innerText = desc.trim();
+      navigate('information');
+    }
+  }
+</script>
+</body>
+</html>
